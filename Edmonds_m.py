@@ -2,7 +2,7 @@ import numpy as np
 
 
 
-def Edmonds(A, root):
+def Edmonds(A, start):
     """
     :param A: square matrix, where Root is the first entry. Row numbers correspond to the base of the edge, columns to the head
     :return: max_span, a square mtx which corresponds to the maximum spanning tree
@@ -10,7 +10,7 @@ def Edmonds(A, root):
 
 
     # Deleting diagonal elements (node should not have an arc to itself) and deleting incoming edges to the Root node
-    A = preprocess(A, root)
+    A = preprocess(A, start)
 
     # calculating greedy matrix (include edges with max incoming weight)
     B = max_incoming_edges(A)
@@ -236,20 +236,28 @@ def fill_incoming_weights(A, collapsed, circle, not_circle):
     return collapsed, rec1
 
 
+r2 = np.array([0, 5, 5, 15])
+r3 = np.array([20, 0, 5, 30])
+r4 = np.array([10, 20, 0, 5])
+r5 =np.array([5, 10, 15, 0])
 
-r1 = np.array([0, 0, 15, 0, 0])
-r2 = np.array([0, 0, 5, 5, 15])
-r3 = np.array([0, 20, 0, 5, 30])
-r4 = np.array([0, 10, 20, 0, 5])
-r5 =np.array([0, 5, 10, 15, 0])
-
-A = np.array([r1, r2, r3, r4, r5])
+A = np.array([r2, r3, r4, r5])
 
 
 ran = np.random.rand(6,6)
 
 
-solution = Edmonds(ran, 0)
-print("solutin ", solution)
 
+root = [0, 15, 0, 0]
 
+span_value = np.zeros(len(root))
+for i in range(len(root)):
+    span_value[i] = sum(sum(Edmonds(A, i)))
+
+max_parse_values = span_value + root
+root_ind = np.argmax(max_parse_values)
+
+final_parse = Edmonds(A,root_ind)
+final_parse[root_ind, root_ind] = root[root_ind]
+
+print(final_parse)
