@@ -20,10 +20,11 @@ for k in range(len(file_vec)):
     for i in range(len(data_list)):
         data_list[i] = data_list[i].replace('","', "mehhmeh")
         line = data_list[i].split(',')
-        for j in range(len(line)):
-            if (j % 6 == 2 or j % 6 == 3 or j % 6 == 4):
-                f.write(line[j] + ', ')
-            if (j % 6 == 5):
-                f.write(line[j] + '\n')
+        if (len(line) == 6):
+            for j in range(len(line)):
+                if (j % 6 == 2 or j % 6 == 3 or j % 6 == 4):
+                    f.write(line[j] + ', ')
+                if (j % 6 == 5):
+                    f.write(line[j] + '\n')
 
     f.close()

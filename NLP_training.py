@@ -3,8 +3,9 @@ import embedding
 import torch
 from torch.autograd import Variable
 import torch.nn as nn
+import os
+import matplotlib.pyplot as plt
 import torch.nn.functional as F
-import calc_goldtree
 
 filename = 'UD_english_reduced_training.txt'
 
@@ -148,7 +149,6 @@ def train_step(model, input_sent, goldtree, loss_criterion, optimizer):
     model.zero_grad()
     output_mtx = torch.transpose(model(input_sent), 0, 1)
     loss = loss_criterion(output_mtx, goldtree.view(goldtree.size()[1]))
-    print(loss)
     loss.backward()
     optimizer.step()
 
@@ -156,28 +156,39 @@ def train_step(model, input_sent, goldtree, loss_criterion, optimizer):
 
 
 # define the training for loop
-sentences = prepare_data(filename)
+def train(filename, model):
 
-for epoch in range(1):
-    for i in range(len(sentences)):
+    sentences = prepare_data(filename)
 
-        # Embed sentences[i]
-        s = sentences[i]
-        sentence_var = Variable(embed_sentence(s), requires_grad=False)
+    loss_count = 0
+    j=0
+    avg_losses=np.array([])
+    hundreds = 0
 
-        try:
-            gold = Variable(calc_gold(s))
-            parse_mtx, loss = train_step(model, sentence_var, gold, loss_criterion, optimizer)
-        except(RuntimeError or ValueError or KeyError):
-            pass
+    for epoch in range(1):
+        for i in range(130):
+
+            # Embed sentences[i]
+            s = sentences[i]
+            sentence_var = Variable(embed_sentence(s), requires_grad=False)
+
+            try:
+                gold = Variable(calc_gold(s))
+                parse_mtx, loss = train_step(model, sentence_var, gold, loss_criterion, optimizer)
+                loss_count += loss
+                j += 1
+                if (j%100 == 0):
+                    c = (loss_count/100)
+                    hundreds += 1
+                    print("i: " + str(i))
+                    print("avg loss after "+ str(hundreds*100) + "sentences: " + str(c))
+                    np.append(avg_losses, c)
+                    j=0
+                    loss_count = 0
+            except(RuntimeError or ValueError or KeyError):
+                pass
+
+    torch.save(model.state_dict(), os.getcwd()+"/my_model.pth")
 
 
-
-
-
-
-
-
-
-
-
+# train(filename, model)
