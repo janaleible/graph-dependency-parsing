@@ -4,47 +4,61 @@ import torch
 from torch.autograd import Variable
 import torch.nn as nn
 import os
+import pandas as pd
+import csv
 import matplotlib.pyplot as plt
 import torch.nn.functional as F
+from conll_df import conll_df
 
-filename = 'UD_english_reduced_training.txt'
+filename = 'en-ud-train.conllu'
 
 def prepare_data(filename):
+    path = '/home/student/Desktop/NLP/project/' + filename
+    df = conll_df(path, file_index=False)
+    df_new = df[['w', 'x', 'g', 'f']]
+    data_string = df_new.to_csv()
+    # data_list = data_string.split('\n')
+    # data_list = data_list[:-1]
 
-    properties = ["words", "tags", "dep_heads", "labels"]
-    for i in range(len(properties)):
-        properties[i] = []
-    with open(filename, "r") as f:
-        for line in f:
-            tokens = line.lower().strip().split(" ")
-            if(len(tokens)>4):
-                continue
-            else:
-                for i in range(len(properties)):
-                    properties[i].append(tokens[i].replace("mehhmeh",'","').strip(','))
+    data_list = list(csv.reader(data_string.split('\n')))[:-1]
 
-    words, tags, dep_heads, labels = properties
-    words.pop(0)
-    tags.pop(0)
-    dep_heads.pop(0)
-    labels.pop(0)
+    data_list.pop(0)
+    properties = {"idx" : [], "words": [], "tags": [], "dep_heads":[], "labels":[]}
+    for j in range(len(data_list)):
+        tokens = data_list[j]
+        properties['idx'].append(int(float(tokens[1])))
+        properties['words'].append(tokens[2].lower())
+        properties['tags'].append(tokens[3].lower())
+        properties['dep_heads'].append(tokens[4])
+        properties['labels'].append(tokens[5].lower())
+
+    idx = properties['idx']
+    words = properties['words']
+    tags = properties['tags']
+    dep_heads = properties['dep_heads']
+    labels = properties['labels']
+
+    # idx.pop(0)
+    # words.pop(0)
+    # tags.pop(0)
+    # dep_heads.pop(0)
+    # labels.pop(0)
 
 
     # make a list of numpy 2D arrays from all the sentences
     sentences = []
-    end_signs = [".", "?", "!"]
-    j = 0 #keeps track whether we are on the beginning of a sentence
-    sent_idx = 0
+    sent_idx = -1
     for i in range(len(words)):
-        if (j == 0):
+        if (idx[i] == 1):
+            if(idx[i+1] == 1): continue
+            # sentences.append(np.array("Root"))
             sentences.append(np.array([words[i], tags[i], dep_heads[i], labels[i]]))
-            j += 1
-        elif (words[i] in end_signs):
-            sentences[sent_idx] = np.vstack((sentences[sent_idx],np.array([words[i], tags[i], dep_heads[i], labels[i]])))
-            sent_idx += 1
-            j = 0
+            sent_idx +=1
         else:
             sentences[sent_idx] = np.vstack((sentences[sent_idx], np.array([words[i], tags[i], dep_heads[i], labels[i]])))
+
+
+
 
     np.random.seed(0)
     np.random.shuffle(sentences)
@@ -61,11 +75,10 @@ def embed_sentence(s):
     for i in range(s.shape[0]):
         try:
             sentence_array[i, :] = embedding.concatenate(embedding.embed_word[s[i, 0]], embedding.embed_tag[s[i, 1]])
+
         except(KeyError):
-            try:
-                sentence_array[i, :] = embedding.concatenate(embedding.embed_word["<unk>"], embedding.embed_tag[s[i, 1]])
-            except(KeyError):
-                pass
+            sentence_array[i, :] = embedding.concatenate(embedding.embed_word["<unk>"],embedding.embed_tag[s[i, 1]])
+
 
     sentence_array = sentence_array.astype(np.float32)
     sentence_tensor = torch.from_numpy(sentence_array)
@@ -87,7 +100,7 @@ def calc_gold(s):
     dim = len(s)
     for i in range(dim):
         if(heads[i] == "0"):
-            heads[i]=int(i)
+            heads[i]= int(i) - 1
         else:
             heads[i] = int(heads[i])-1
     target = torch.from_numpy(np.array([heads]))
@@ -166,29 +179,29 @@ def train(filename, model):
     hundreds = 0
 
     for epoch in range(1):
-        for i in range(130):
+        for i in range(len(sentences)):
 
             # Embed sentences[i]
             s = sentences[i]
+
             sentence_var = Variable(embed_sentence(s), requires_grad=False)
 
-            try:
-                gold = Variable(calc_gold(s))
-                parse_mtx, loss = train_step(model, sentence_var, gold, loss_criterion, optimizer)
-                loss_count += loss
-                j += 1
-                if (j%100 == 0):
-                    c = (loss_count/100)
-                    hundreds += 1
-                    print("i: " + str(i))
-                    print("avg loss after "+ str(hundreds*100) + "sentences: " + str(c))
-                    np.append(avg_losses, c)
-                    j=0
-                    loss_count = 0
-            except(RuntimeError or ValueError or KeyError):
-                pass
+
+            gold = Variable(calc_gold(s))
+            parse_mtx, loss = train_step(model, sentence_var, gold, loss_criterion, optimizer)
+            loss_count += loss
+            j += 1
+            if (j%100 == 0):
+                c = (loss_count/100)
+                hundreds += 1
+                print("i: " + str(i))
+                print("avg loss after "+ str(hundreds*100) + "sentences: " + str(c))
+                np.append(avg_losses, c)
+                j=0
+                loss_count = 0
 
     torch.save(model.state_dict(), os.getcwd()+"/my_model.pth")
 
 
-# train(filename, model)
+if __name__ == "__main__":
+    train(filename, model)
