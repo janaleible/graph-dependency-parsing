@@ -4,21 +4,16 @@ import torch
 from torch.autograd import Variable
 import torch.nn as nn
 import os
-import pandas as pd
 import csv
-import matplotlib.pyplot as plt
-import torch.nn.functional as F
 from conll_df import conll_df
 
-filename = 'en-ud-train.conllu'
+language = 'en'
+file = 'lang_{}/gold/en-ud-train.conllu'.format(language)
 
-def prepare_data(filename):
-    path = '/home/student/Desktop/NLP/project/' + filename
-    df = conll_df(path, file_index=False)
+def prepare_data(file):
+    df = conll_df(file, file_index=False)
     df_new = df[['w', 'x', 'g', 'f']]
     data_string = df_new.to_csv()
-    # data_list = data_string.split('\n')
-    # data_list = data_list[:-1]
 
     data_list = list(csv.reader(data_string.split('\n')))[:-1]
 
@@ -100,7 +95,8 @@ def calc_gold(s):
     dim = len(s)
     for i in range(dim):
         if(heads[i] == "0"):
-            heads[i]= int(i) - 1
+            # word is root -> mark with arrow to itself
+            heads[i]= int(i)
         else:
             heads[i] = int(heads[i])-1
     target = torch.from_numpy(np.array([heads]))
@@ -169,7 +165,7 @@ def train_step(model, input_sent, goldtree, loss_criterion, optimizer):
 
 
 # define the training for loop
-def train(filename, model):
+def train(filename, model, language):
 
     sentences = prepare_data(filename)
 
@@ -195,13 +191,13 @@ def train(filename, model):
                 c = (loss_count/100)
                 hundreds += 1
                 print("i: " + str(i))
-                print("avg loss after "+ str(hundreds*100) + "sentences: " + str(c))
+                print("avg loss after "+ str(hundreds*100) + " sentences: " + str(c))
                 np.append(avg_losses, c)
                 j=0
                 loss_count = 0
 
-    torch.save(model.state_dict(), os.getcwd()+"/my_model.pth")
+    torch.save(model.state_dict(), "lang_{}/models/my_modelx.pth".format(language))
 
 
 if __name__ == "__main__":
-    train(filename, model)
+    train(file, model, language)

@@ -6,13 +6,13 @@ from torch.autograd import Variable
 import Edmonds_m
 import torch.nn as nn
 
-
-filename = 'en-ud-test.conllu'
+language = 'en'
+filename = 'lang_{}/gold/en-ud-test.conllu'.format(language)
 
 sentences = NLP_training.prepare_data(filename)
 
 model = NLP_training.LSTMParser()
-model.load_state_dict(torch.load(os.getcwd()+"/my_model.pth"))
+model.load_state_dict(torch.load("lang_{}/models/my_model.pth".format(language)))
 
 def UAS_score(model, sentences):
     precision_arr = np.zeros(len(sentences))
