@@ -5,12 +5,11 @@ import embedding
 import torch
 from torch.autograd import Variable
 import torch.nn as nn
-import os
 import csv
 from conll_df import conll_df
 
 language = 'en'
-file = 'lang_{}/gold/en-ud-train.conllu'.format(language)
+file = 'lang_{}/gold/{}-ud-train.conllu'.format(language, language)
 
 def prepare_data(file):
     df = conll_df(file, file_index=False)
@@ -49,8 +48,9 @@ def prepare_data(file):
         if (idx[i] == 1):
             if(idx[i+1] == 1): continue
             # sentences.append(np.array("Root"))
-            sentences.append(np.array([words[i], tags[i], dep_heads[i], labels[i]]))
             sent_idx +=1
+            sentences.append(np.array(['<root>', '<root>', 0, 'root']))
+            sentences[sent_idx] = np.vstack((sentences[sent_idx], np.array([words[i], tags[i], dep_heads[i], labels[i]])))
         else:
             sentences[sent_idx] = np.vstack((sentences[sent_idx], np.array([words[i], tags[i], dep_heads[i], labels[i]])))
 
@@ -135,7 +135,10 @@ class LSTMParser(nn.Module):
 
     def forward(self, sentence_emb):
         biLSTM_embed, _ = self.biLSTM(sentence_emb)
-        concat = torch.cat((biLSTM_embed.repeat(1,1,sentence_emb.size()[0]).view(-1,1,250),biLSTM_embed.repeat(sentence_emb.size()[0],1,1)), 2)
+        concat = torch.cat((
+                biLSTM_embed.repeat(sentence_emb.size()[0],1,1),
+                biLSTM_embed.repeat(1,1,sentence_emb.size()[0]).view(-1,1,250)
+        ), 2)
         inp = concat.view(-1, 500)
         out = self.MLP(inp)
         output_mtx = out.view(sentence_emb.size()[0], -1)
@@ -158,7 +161,7 @@ optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
 # TRAINING
 def train_step(model, input_sent, goldtree, loss_criterion, optimizer):
     model.zero_grad()
-    output_mtx = torch.transpose(model(input_sent), 0, 1)
+    output_mtx = model(input_sent)
     loss = loss_criterion(output_mtx, goldtree.view(goldtree.size()[1]))
     loss.backward()
     optimizer.step()
@@ -173,7 +176,7 @@ def train(filename, model, language, verbose = 1):
 
     losses = []
 
-    for epoch in range(10):
+    for epoch in range(200):
 
         epoch_loss = 0
 
@@ -189,13 +192,13 @@ def train(filename, model, language, verbose = 1):
 
             if verbose > 1: print('loss {0:.4f} for "'.format(loss.data.numpy()[0]) + ' '.join(word for word in sentence[:,0]) + '"')
 
-        torch.save(model.state_dict(), "lang_{}/models/my_model.pth".format(language))
+        torch.save(model.state_dict(), "lang_{}/models/model2.pth".format(language))
         losses.append(epoch_loss.data.numpy()[0] / len(sentences))
 
-        if verbose > 0: print('average loss {} \n *****'.format(losses[-1]))
+        if verbose > 0: print('average loss {} \n*****'.format(losses[-1]))
 
         pyplot.plot(range(len(losses)), losses)
-        pyplot.savefig('lang_{}/models/my_model_loss.pdf'.format(language))
+        pyplot.savefig('lang_{}/models/model2_loss.pdf'.format(language))
 
 
 if __name__ == "__main__":
