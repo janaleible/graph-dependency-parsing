@@ -1,4 +1,6 @@
 import numpy as np
+from matplotlib import pyplot
+
 import embedding
 import torch
 from torch.autograd import Variable
@@ -165,38 +167,35 @@ def train_step(model, input_sent, goldtree, loss_criterion, optimizer):
 
 
 # define the training for loop
-def train(filename, model, language):
+def train(filename, model, language, verbose = 1):
 
     sentences = prepare_data(filename)
 
-    loss_count = 0
-    j=0
-    avg_losses=np.array([])
-    hundreds = 0
+    losses = []
 
-    for epoch in range(1):
-        for i in range(len(sentences)):
+    for epoch in range(10):
 
-            # Embed sentences[i]
-            s = sentences[i]
+        epoch_loss = 0
 
-            sentence_var = Variable(embed_sentence(s), requires_grad=False)
+        if verbose > 0: print('\n***** Epoch {}:'.format(epoch))
 
+        for sentence in sentences:
 
-            gold = Variable(calc_gold(s))
+            sentence_var = Variable(embed_sentence(sentence), requires_grad=False)
+
+            gold = Variable(calc_gold(sentence))
             parse_mtx, loss = train_step(model, sentence_var, gold, loss_criterion, optimizer)
-            loss_count += loss
-            j += 1
-            if (j%100 == 0):
-                c = (loss_count/100)
-                hundreds += 1
-                print("i: " + str(i))
-                print("avg loss after "+ str(hundreds*100) + " sentences: " + str(c))
-                np.append(avg_losses, c)
-                j=0
-                loss_count = 0
+            epoch_loss += loss
 
-    torch.save(model.state_dict(), "lang_{}/models/my_modelx.pth".format(language))
+            if verbose > 1: print('loss {0:.4f} for "'.format(loss.data.numpy()[0]) + ' '.join(word for word in sentence[:,0]) + '"')
+
+        torch.save(model.state_dict(), "lang_{}/models/my_model.pth".format(language))
+        losses.append(epoch_loss.data.numpy()[0] / len(sentences))
+
+        if verbose > 0: print('average loss {} \n *****'.format(losses[-1]))
+
+        pyplot.plot(range(len(losses)), losses)
+        pyplot.savefig('lang_{}/models/my_model_loss.pdf'.format(language))
 
 
 if __name__ == "__main__":
