@@ -1,5 +1,6 @@
 import numpy as np
 
+language = 'en'
 
 def concatenate(word_vec, tag_vec):
     con = np.concatenate((word_vec, tag_vec))
@@ -7,7 +8,7 @@ def concatenate(word_vec, tag_vec):
 
 
 embed_word = {}
-filename = 'vectors-unk.txt'
+filename = 'lang_{}/embeddings/vectors-unk.txt'.format(language)
 with open(filename, "r") as f:
     for line in f:
         tokens = line.lower().strip().split(" ")
@@ -16,7 +17,7 @@ with open(filename, "r") as f:
         embed_word[x] = [float(x) for x in vec]
 
 embed_tag = {}
-filename = 'vectors-tags.txt'
+filename = 'lang_{}/embeddings/vectors-tags.txt'.format(language)
 with open(filename, "r") as f:
     for line in f:
         tokens = line.lower().strip().split(" ")

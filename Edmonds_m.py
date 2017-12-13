@@ -236,28 +236,28 @@ def fill_incoming_weights(A, collapsed, circle, not_circle):
     return collapsed, rec1
 
 
-r2 = np.array([0, 5, 5, 15])
-r3 = np.array([20, 0, 5, 30])
-r4 = np.array([10, 20, 0, 5])
-r5 =np.array([5, 10, 15, 0])
-
-A = np.array([r2, r3, r4, r5])
-
-
-ran = np.random.rand(6,6)
-
-
-
-root = [0, 15, 0, 0]
-
-span_value = np.zeros(len(root))
-for i in range(len(root)):
-    span_value[i] = sum(sum(Edmonds(A, i)))
-
-max_parse_values = span_value + root
-root_ind = np.argmax(max_parse_values)
-
-final_parse = Edmonds(A,root_ind)
-final_parse[root_ind, root_ind] = root[root_ind]
-
-print(final_parse)
+# r2 = np.array([0, 5, 5, 15])
+# r3 = np.array([20, 0, 5, 30])
+# r4 = np.array([10, 20, 0, 5])
+# r5 =np.array([5, 10, 15, 0])
+#
+# A = np.array([r2, r3, r4, r5])
+#
+#
+# ran = np.random.rand(6,6)
+#
+#
+#
+# root = [0, 15, 0, 0]
+#
+# span_value = np.zeros(len(root))
+# for i in range(len(root)):
+#     span_value[i] = sum(sum(Edmonds(A, i)))
+#
+# max_parse_values = span_value + root
+# root_ind = np.argmax(max_parse_values)
+#
+# final_parse = Edmonds(A,root_ind)
+# final_parse[root_ind, root_ind] = root[root_ind]
+#
+# print(final_parse)
