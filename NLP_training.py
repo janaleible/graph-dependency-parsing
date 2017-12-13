@@ -1,4 +1,5 @@
 import numpy as np
+import sys
 from matplotlib import pyplot
 
 import embedding
@@ -150,16 +151,17 @@ lstm_h_size = 125
 lstm_num_layers = 1
 
 MLP_D_in = 500
-MLP_D_H = 100
+MLP_D_H = int(sys.argv[1])
 MLP_D_out = 1
 
-learning_rate = 1e-4
+learning_rate = float(sys.argv[2])
 loss_criterion = nn.CrossEntropyLoss()
 model = LSTMParser()
 optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
 
 # TRAINING
 def train_step(model, input_sent, goldtree, loss_criterion, optimizer):
+
     model.zero_grad()
     output_mtx = model(input_sent)
     loss = loss_criterion(output_mtx, goldtree.view(goldtree.size()[1]))
@@ -176,7 +178,7 @@ def train(filename, model, language, verbose = 1):
 
     losses = []
 
-    for epoch in range(200):
+    for epoch in range(int(sys.argv[3])):
 
         epoch_loss = 0
 
@@ -192,13 +194,13 @@ def train(filename, model, language, verbose = 1):
 
             if verbose > 1: print('loss {0:.4f} for "'.format(loss.data.numpy()[0]) + ' '.join(word for word in sentence[:,0]) + '"')
 
-        torch.save(model.state_dict(), "lang_{}/models/model2.pth".format(language))
+        torch.save(model.state_dict(), "lang_{}/models/{}.pth".format(language, sys.argv[4]))
         losses.append(epoch_loss.data.numpy()[0] / len(sentences))
 
         if verbose > 0: print('average loss {} \n*****'.format(losses[-1]))
 
         pyplot.plot(range(len(losses)), losses)
-        pyplot.savefig('lang_{}/models/model2_loss.pdf'.format(language))
+        pyplot.savefig('lang_{}/models/{}_loss.pdf'.format(language, sys.argv[4]))
 
 
 if __name__ == "__main__":
