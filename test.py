@@ -23,7 +23,7 @@ def UAS_score(model, sentences):
         print(i)
         sentence = sentences[i]
         target = NLP_training.calc_gold(sentence)
-        sentence_var = Variable(NLP_training.embed_sentence(sentence), requires_grad=False)
+        sentence_var = Variable(NLP_training.embed_sentence(sentence, language), requires_grad=False)
         prediction = model(sentence_var)
 
         # prediction = torch.transpose((prediction), 0, 1)

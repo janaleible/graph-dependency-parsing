@@ -13,9 +13,9 @@ language = 'en'
 file = 'lang_{}/gold/{}-ud-train.conllu'.format(language, language)
 
 def prepare_data(file):
-    df = conll_df(file, file_index=False)
-    df_new = df[['w', 'x', 'g', 'f']]
-    data_string = df_new.to_csv()
+    # df = conll_df(file, file_index=False)
+    # df_new = conll_df(file, file_index=False)[['w', 'x', 'g', 'f']]
+    data_string = (conll_df(file, file_index=False)[['w', 'x', 'g', 'f']]).to_csv()
 
     data_list = list(csv.reader(data_string.split('\n')))[:-1]
 
@@ -29,83 +29,59 @@ def prepare_data(file):
         properties['dep_heads'].append(tokens[4])
         properties['labels'].append(tokens[5].lower())
 
-    idx = properties['idx']
-    words = properties['words']
-    tags = properties['tags']
-    dep_heads = properties['dep_heads']
-    labels = properties['labels']
-
-    # idx.pop(0)
-    # words.pop(0)
-    # tags.pop(0)
-    # dep_heads.pop(0)
-    # labels.pop(0)
-
-
     # make a list of numpy 2D arrays from all the sentences
     sentences = []
     sent_idx = -1
-    for i in range(len(words)):
-        if (idx[i] == 1):
-            if(idx[i+1] == 1): continue
-            # sentences.append(np.array("Root"))
+    for i in range(len(properties['words'])):
+        if (properties['idx'][i] == 1):
+            if(properties['idx'][i+1] == 1): continue # skip one word sentences
             sent_idx +=1
             sentences.append(np.array(['<root>', '<root>', 0, 'root']))
-            sentences[sent_idx] = np.vstack((sentences[sent_idx], np.array([words[i], tags[i], dep_heads[i], labels[i]])))
+            sentences[sent_idx] = np.vstack((sentences[sent_idx], np.array([properties['words'][i], properties['tags'][i], properties['dep_heads'][i], properties['labels'][i]])))
         else:
-            sentences[sent_idx] = np.vstack((sentences[sent_idx], np.array([words[i], tags[i], dep_heads[i], labels[i]])))
-
-
-
+            sentences[sent_idx] = np.vstack((sentences[sent_idx], np.array([properties['words'][i], properties['tags'][i], properties['dep_heads'][i], properties['labels'][i]])))
 
     np.random.seed(0)
     np.random.shuffle(sentences)
 
     return sentences
 
-def embed_sentence(s):
-    # Make the embedding for the selected sentence
+def embed_sentence(sentence, language):
 
     batch_size = 1
     in_size = 125
 
-    sentence_array = np.zeros((len(s), 125))
-    for i in range(s.shape[0]):
-        try:
-            sentence_array[i, :] = embedding.concatenate(embedding.embed_word[s[i, 0]], embedding.embed_tag[s[i, 1]])
+    word_embeddings = embedding.get_word_embeddings(language)
+    tag_embeddings = embedding.get_tag_embeddings(language)
 
-        except(KeyError):
-            sentence_array[i, :] = embedding.concatenate(embedding.embed_word["<unk>"],embedding.embed_tag[s[i, 1]])
+    sentence_array = np.zeros((len(sentence), 125))
+    for i in range(sentence.shape[0]):
 
+        if not sentence[i, 0] in word_embeddings:
+            sentence[i, 0] = '<unk>'
 
-    sentence_array = sentence_array.astype(np.float32)
-    sentence_tensor = torch.from_numpy(sentence_array)
-    # sent_float_tensor = torch.FloatTensor(sentence_tensor)
-    sentence_tensor = sentence_tensor.view(len(s), batch_size, in_size)
+        sentence_array[i, :] = embedding.concatenate(word_embeddings[sentence[i, 0]], tag_embeddings[sentence[i, 1]])
+
+    sentence_tensor = torch.from_numpy(sentence_array.astype(np.float32))
+    sentence_tensor = sentence_tensor.view(len(sentence), batch_size, in_size)
 
     return sentence_tensor
 
-def calc_gold(s):
-    words = []
-    tags = []
+def calc_gold(sentence):
+
     heads = []
-    relations = []
-    for line in s:
-        words.append(line[0])
-        tags.append(line[1])
+
+    for line in sentence:
         heads.append(line[2])
-        relations.append(line[3])
-    dim = len(s)
-    for i in range(dim):
-        if(heads[i] == "0"):
-            # word is root -> mark with arrow to itself
-            heads[i]= int(i)
-        else:
-            heads[i] = int(heads[i])-1
+
+    for i in range(len(sentence)):
+        # word is root -> mark with arrow to itself
+        if(heads[i] == "0"): heads[i] = i
+        else: heads[i] = int(heads[i])-1
+
     target = torch.from_numpy(np.array([heads]))
+
     return target
-
-
 
 
 # Defining the LSTMParser class
@@ -186,7 +162,7 @@ def train(filename, model, language, verbose = 1):
 
         for sentence in sentences:
 
-            sentence_var = Variable(embed_sentence(sentence), requires_grad=False)
+            sentence_var = Variable(embed_sentence(sentence, language), requires_grad=False)
 
             gold = Variable(calc_gold(sentence))
             parse_mtx, loss = train_step(model, sentence_var, gold, loss_criterion, optimizer)
