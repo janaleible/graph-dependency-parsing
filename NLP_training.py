@@ -9,6 +9,8 @@ import torch.nn as nn
 import csv
 from conll_df import conll_df
 
+from mst import mst
+
 language = 'en'
 file = 'lang_{}/gold/{}-ud-train.conllu'.format(language, language)
 
@@ -67,7 +69,7 @@ def embed_sentence(sentence, language):
 
     return sentence_tensor
 
-def calc_gold(sentence):
+def calc_gold_arcs(sentence):
 
     heads = []
 
@@ -103,32 +105,59 @@ class LSTMParser(nn.Module):
         )
 
         self.MLP = nn.Sequential(
-            torch.nn.Linear(MLP_D_in, MLP_D_H),
+            torch.nn.Linear(MLP_in, MLP_score_hidden),
             torch.nn.Tanh(),
-            torch.nn.Linear(MLP_D_H, MLP_D_out)
+            torch.nn.Linear(MLP_score_hidden, MLP_score_out)
         )
 
 
 
-    def forward(self, sentence_emb):
+    def forward(self, sentence_emb, gold_tree=None):
+
         biLSTM_embed, _ = self.biLSTM(sentence_emb)
+
+
+        # stuff for scores
         concat = torch.cat((
                 biLSTM_embed.repeat(sentence_emb.size()[0],1,1),
                 biLSTM_embed.repeat(1,1,sentence_emb.size()[0]).view(-1,1,250)
         ), 2)
+
         inp = concat.view(-1, 500)
+
         out = self.MLP(inp)
         output_mtx = out.view(sentence_emb.size()[0], -1)
-        return output_mtx
+
+        # stuff for labels
+
+
+
+        return output_mtx, biLSTM_embed
+
+    def predict(self, sentence):
+
+        prediction, biLSTM_encoded = self.forward(sentence)
+
+        softmax = nn.Softmax()
+        prediction = softmax(prediction)
+
+        prediction = prediction.data.numpy()
+
+        # we represent the final parse as a words*words mtx, where the root is indicated as the diagonal element
+        max_tree = mst(prediction)
+
+        return max_tree, biLSTM_encoded
+
 
 # Hyperparameter
 lstm_in_size = 125
 lstm_h_size = 125
 lstm_num_layers = 1
 
-MLP_D_in = 500
-MLP_D_H = int(sys.argv[1])
-MLP_D_out = 1
+MLP_in = 500
+
+MLP_score_hidden = int(sys.argv[1])
+MLP_score_out = 1
 
 learning_rate = float(sys.argv[2])
 loss_criterion = nn.CrossEntropyLoss()
@@ -144,7 +173,7 @@ def train_step(model, input_sent, goldtree, loss_criterion, optimizer):
     loss.backward()
     optimizer.step()
 
-    return output_mtx, loss
+    return loss
 
 
 # define the training for loop
@@ -164,8 +193,8 @@ def train(filename, model, language, verbose = 1):
 
             sentence_var = Variable(embed_sentence(sentence, language), requires_grad=False)
 
-            gold = Variable(calc_gold(sentence))
-            parse_mtx, loss = train_step(model, sentence_var, gold, loss_criterion, optimizer)
+            gold = Variable(calc_gold_arcs(sentence))
+            loss = train_step(model, sentence_var, gold, loss_criterion, optimizer)
             epoch_loss += loss
 
             if verbose > 1: print('loss {0:.4f} for "'.format(loss.data.numpy()[0]) + ' '.join(word for word in sentence[:,0]) + '"')
