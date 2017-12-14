@@ -5,15 +5,19 @@ from torch.autograd import Variable
 
 language = 'en'
 filename = 'lang_{}/gold/{}-ud-dev.conllu'.format(language, language)
+# filename = 'lang_en/gold/mydev.conllu'
 
-sentences = NLP_training.prepare_data(filename)
+sentences = NLP_training.prepare_data(filename, training=False)
 
 model = NLP_training.LSTMParser()
-model.load_state_dict(torch.load("lang_{}/models/model4.pth".format(language)))
+model.load_state_dict(torch.load("lang_{}/models/model1.pth".format(language)))
 
 def UAS_score(model, sentences):
 
     precision_arr = np.zeros(len(sentences))
+
+    with open('conllu', 'w') as file:
+        file.write('')
 
     for i in range(len(sentences)):
         print(i)
@@ -38,12 +42,22 @@ def UAS_score(model, sentences):
             if(max_tree[j, target.view(target.size()[1])[j]] != 0):
                 precision_sent += 1
             precision_arr[i] = precision_sent/(len(sentence))
+
+        write_to_file('conllu', sentence[1:], max_tree[1:,])
+
     return np.mean(precision_arr)
 
-# def write_to_file(filename, sentence, tree):
-#
-#     with open(filename, 'a') as file:
-#
+def write_to_file(filename, sentence, tree):
+
+    conllu = '# ' + ' '.join(sentence[:, 0]) + '\n'
+    for index, line in enumerate(sentence):
+        conllu += '{}\t{}\t_\t_\t_\t_\t{}\t_\t_\t_'.format(index + 1, line[0], np.argmax(tree[index, :]), )
+        conllu += '\n'
+    conllu += '\n'
+
+    with open(filename, 'a') as file:
+        file.write(conllu)
+
 
 
 

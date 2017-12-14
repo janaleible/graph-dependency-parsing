@@ -14,9 +14,8 @@ from mst import mst
 language = 'en'
 file = 'lang_{}/gold/{}-ud-train.conllu'.format(language, language)
 
-def prepare_data(file):
-    # df = conll_df(file, file_index=False)
-    # df_new = conll_df(file, file_index=False)[['w', 'x', 'g', 'f']]
+def prepare_data(file, training=True):
+
     data_string = (conll_df(file, file_index=False)[['w', 'x', 'g', 'f']]).to_csv()
 
     data_list = list(csv.reader(data_string.split('\n')))[:-1]
@@ -26,7 +25,7 @@ def prepare_data(file):
     for j in range(len(data_list)):
         tokens = data_list[j]
         properties['idx'].append(int(float(tokens[1])))
-        properties['words'].append(tokens[2].lower())
+        properties['words'].append(tokens[2])
         properties['tags'].append(tokens[3].lower())
         properties['dep_heads'].append(tokens[4])
         properties['labels'].append(tokens[5].lower())
@@ -36,7 +35,7 @@ def prepare_data(file):
     sent_idx = -1
     for i in range(len(properties['words'])):
         if (properties['idx'][i] == 1):
-            if(properties['idx'][i+1] == 1): continue # skip one word sentences
+            # if(properties['idx'][i+1] == 1): continue # skip one word sentences
             sent_idx +=1
             sentences.append(np.array(['<root>', '<root>', 0, 'root']))
             sentences[sent_idx] = np.vstack((sentences[sent_idx], np.array([properties['words'][i], properties['tags'][i], properties['dep_heads'][i], properties['labels'][i]])))
@@ -44,7 +43,7 @@ def prepare_data(file):
             sentences[sent_idx] = np.vstack((sentences[sent_idx], np.array([properties['words'][i], properties['tags'][i], properties['dep_heads'][i], properties['labels'][i]])))
 
     np.random.seed(0)
-    np.random.shuffle(sentences)
+    if training: np.random.shuffle(sentences)
 
     return sentences
 
@@ -60,9 +59,10 @@ def embed_sentence(sentence, language):
     for i in range(sentence.shape[0]):
 
         if not sentence[i, 0] in word_embeddings:
-            sentence[i, 0] = '<unk>'
+            embeddable = '<unk>'
+        else: embeddable = sentence[i,0].lower()
 
-        sentence_array[i, :] = embedding.concatenate(word_embeddings[sentence[i, 0]], tag_embeddings[sentence[i, 1]])
+        sentence_array[i, :] = embedding.concatenate(word_embeddings[embeddable], tag_embeddings[sentence[i, 1]])
 
     sentence_tensor = torch.from_numpy(sentence_array.astype(np.float32))
     sentence_tensor = sentence_tensor.view(len(sentence), batch_size, in_size)
