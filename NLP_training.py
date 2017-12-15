@@ -74,12 +74,14 @@ def calc_gold_arcs(sentence):
     heads = []
 
     for line in sentence:
-        heads.append(line[2])
+        heads.append(int(line[2]))
 
-    for i in range(len(sentence)):
-        # word is root -> mark with arrow to itself
-        if(heads[i] == "0"): heads[i] = i
-        else: heads[i] = int(heads[i])-1
+    # for i in range(len(sentence)):
+    #     # word is root -> mark with arrow to itself
+    #     # if(heads[i] == "0"): heads[i] = i
+    #     # else: heads[i] = int(heads[i])-1
+    #     heads[i] = int(heads[i])
+
 
     target = torch.from_numpy(np.array([heads]))
 
@@ -168,12 +170,20 @@ optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
 def train_step(model, input_sent, goldtree, loss_criterion, optimizer):
 
     model.zero_grad()
-    output_mtx = model(input_sent)
+    output_mtx, _ = model(input_sent)
     loss = loss_criterion(output_mtx, goldtree.view(goldtree.size()[1]))
     loss.backward()
     optimizer.step()
 
-    return loss
+    return loss, output_mtx
+
+
+# def visualise_sentence(sentence, matrix, epoch):
+#
+#     pyplot.imshow(matrix)
+#     pyplot.colorbar()
+#     pyplot.title("Weight matrix of random matrix A")
+#     pyplot.show()
 
 
 # define the training for loop
@@ -194,10 +204,12 @@ def train(filename, model, language, verbose = 1):
             sentence_var = Variable(embed_sentence(sentence, language), requires_grad=False)
 
             gold = Variable(calc_gold_arcs(sentence))
-            loss = train_step(model, sentence_var, gold, loss_criterion, optimizer)
+            loss, matrix = train_step(model, sentence_var, gold, loss_criterion, optimizer)
             epoch_loss += loss
 
-            if verbose > 1: print('loss {0:.4f} for "'.format(loss.data.numpy()[0]) + ' '.join(word for word in sentence[:,0]) + '"')
+            if verbose > 2: print('loss {0:.4f} for "'.format(loss.data.numpy()[0]) + ' '.join(word for word in sentence[:,0]) + '"')
+
+            # if verbose > 1: visualise_sentence(sentence, matrix)
 
         torch.save(model.state_dict(), "lang_{}/models/{}.pth".format(language, sys.argv[4]))
         losses.append(epoch_loss.data.numpy()[0] / len(sentences))

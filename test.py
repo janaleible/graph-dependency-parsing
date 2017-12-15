@@ -4,8 +4,8 @@ import torch
 from torch.autograd import Variable
 
 language = 'en'
-filename = 'lang_{}/gold/{}-ud-dev.conllu'.format(language, language)
-# filename = 'lang_en/gold/mydev.conllu'
+# filename = 'lang_{}/gold/{}-ud-dev.conllu'.format(language, language)
+filename = 'lang_en/gold/mytest.conllu'
 
 sentences = NLP_training.prepare_data(filename, training=False)
 
@@ -27,21 +27,11 @@ def UAS_score(model, sentences):
 
         max_tree, _ = model.predict(sentence_var)
 
-        # prediction, _ = model(sentence_var)
-
-        # softmax = nn.Softmax()
-        # prediction = softmax(prediction)
-        #
-        # prediction = prediction.data.numpy()
-        #
-        # # we represent the final parse as a words*words mtx, where the root is indicated as the diagonal element
-        # max_tree = mst(prediction)
-
         precision_sent = 0
-        for j in range(len(sentence)):
+        for j in range(1, len(sentence)):
             if(max_tree[j, target.view(target.size()[1])[j]] != 0):
                 precision_sent += 1
-            precision_arr[i] = precision_sent/(len(sentence))
+            precision_arr[i] = precision_sent/(len(sentence) - 1)
 
         write_to_file('conllu', sentence[1:], max_tree[1:,])
 
