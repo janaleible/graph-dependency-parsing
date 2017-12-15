@@ -7,6 +7,7 @@ import torch
 from torch.autograd import Variable
 import torch.nn as nn
 import csv
+import pickle
 from conll_df import conll_df
 
 from mst import mst
@@ -106,35 +107,56 @@ class LSTMParser(nn.Module):
             bidirectional=True
         )
 
-        self.MLP = nn.Sequential(
+        # for predicting arcs
+        self.arcMLP = nn.Sequential(
             torch.nn.Linear(MLP_in, MLP_score_hidden),
             torch.nn.Tanh(),
             torch.nn.Linear(MLP_score_hidden, MLP_score_out)
         )
 
-
+        # for predicting labels
+        self.labelMLP = torch.nn.Sequential(
+            torch.nn.Linear(MLP_in, MLP_label_hidden),
+            torch.nn.Tanh(),
+            torch.nn.Linear(MLP_label_hidden, MLP_label_out)
+        )
 
     def forward(self, sentence_emb, gold_tree=None):
 
         biLSTM_embed, _ = self.biLSTM(sentence_emb)
 
-
         # stuff for scores
-        concat = torch.cat((
+        arcs_in = torch.cat((
                 biLSTM_embed.repeat(sentence_emb.size()[0],1,1),
                 biLSTM_embed.repeat(1,1,sentence_emb.size()[0]).view(-1,1,250)
-        ), 2)
+        ), 2).view(-1, 500)
 
-        inp = concat.view(-1, 500)
+        arc_scores = self.arcMLP(arcs_in).view(sentence_emb.size()[0], -1)
 
-        out = self.MLP(inp)
-        output_mtx = out.view(sentence_emb.size()[0], -1)
+        if gold_tree is None:
+            gold_tree = self.get_tree(arc_scores)
 
         # stuff for labels
+        heads = biLSTM_embed
+        dependants = torch.index_select(
+            biLSTM_embed.data,
+            0,
+            torch.from_numpy(np.argmax(gold_tree, 1))
+        )
 
+        label_matrix = self.labelMLP(torch.cat((heads, dependants), 2).view(-1, 500))
 
+        return arc_scores, label_matrix
 
-        return output_mtx, biLSTM_embed
+    def get_tree(self, scores_matrix):
+
+        softmax = nn.Softmax()
+        prediction = softmax(scores_matrix)
+
+        prediction = prediction.data.numpy()
+
+        # we represent the final parse as a words*words mtx, where the root is indicated as the diagonal element
+        return mst(prediction)
 
     def predict(self, sentence):
 
@@ -161,21 +183,42 @@ MLP_in = 500
 MLP_score_hidden = int(sys.argv[1])
 MLP_score_out = 1
 
+MLP_label_hidden = int(sys.argv[5])
+MLP_label_out = 50
+
 learning_rate = float(sys.argv[2])
-loss_criterion = nn.CrossEntropyLoss()
+arc_loss_criterion = nn.CrossEntropyLoss()
+label_loss_criterion = nn.CrossEntropyLoss()
 model = LSTMParser()
 optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
 
+def calc_gold_labels(sentence):
+
+    labels = []
+
+    with open('lang_en/embeddings/label2i.pickle', 'rb') as file:
+        label2i = pickle.load(file)
+
+    for line in sentence:
+        labels.append(label2i[line[3]])
+
+    target = torch.from_numpy(np.array([labels]))
+
+    return target
+
+
 # TRAINING
-def train_step(model, input_sent, goldtree, loss_criterion, optimizer):
+def train_step(model, input_sent, gold_arcs, gold_labels, arc_loss_criterion, label_loss_criterion, optimizer):
 
     model.zero_grad()
-    output_mtx, _ = model(input_sent)
-    loss = loss_criterion(output_mtx, goldtree.view(goldtree.size()[1]))
+    arc_matrix, label_matrix = model(input_sent)
+    arc_loss = arc_loss_criterion(arc_matrix, gold_arcs.view(gold_arcs.size()[1]))
+    label_loss = label_loss_criterion(label_matrix, gold_labels.view(gold_labels.size()[1]))
+    loss = arc_loss + label_loss
     loss.backward()
     optimizer.step()
 
-    return loss, output_mtx
+    return loss, arc_matrix, (arc_loss, label_loss)
 
 
 # def visualise_sentence(sentence, matrix, epoch):
@@ -191,11 +234,13 @@ def train(filename, model, language, verbose = 1):
 
     sentences = prepare_data(filename)
 
-    losses = []
+    arc_losses = []
+    label_losses = []
 
     for epoch in range(int(sys.argv[3])):
 
-        epoch_loss = 0
+        epoch_arc_loss = 0
+        epoch_label_loss = 0
 
         if verbose > 0: print('\n***** Epoch {}:'.format(epoch))
 
@@ -203,20 +248,26 @@ def train(filename, model, language, verbose = 1):
 
             sentence_var = Variable(embed_sentence(sentence, language), requires_grad=False)
 
-            gold = Variable(calc_gold_arcs(sentence))
-            loss, matrix = train_step(model, sentence_var, gold, loss_criterion, optimizer)
-            epoch_loss += loss
+            gold_arcs = Variable(calc_gold_arcs(sentence))
+            gold_labels = Variable(calc_gold_labels(sentence))
+            loss, matrix, losses_separate = train_step(model, sentence_var, gold_arcs, gold_labels, arc_loss_criterion, label_loss_criterion, optimizer)
+            epoch_arc_loss += losses_separate[0]
+            epoch_label_loss += losses_separate[1]
 
             if verbose > 2: print('loss {0:.4f} for "'.format(loss.data.numpy()[0]) + ' '.join(word for word in sentence[:,0]) + '"')
 
             # if verbose > 1: visualise_sentence(sentence, matrix)
 
         torch.save(model.state_dict(), "lang_{}/models/{}.pth".format(language, sys.argv[4]))
-        losses.append(epoch_loss.data.numpy()[0] / len(sentences))
+        arc_losses.append(epoch_arc_loss.data.numpy()[0] / len(sentences))
+        label_losses.append(epoch_label_loss.data.numpy()[0] / len(sentences))
 
-        if verbose > 0: print('average loss {} \n*****'.format(losses[-1]))
 
-        pyplot.plot(range(len(losses)), losses)
+        if verbose > 0: print('average loss {} \n*****'.format(arc_losses[-1]))
+
+        pyplot.plot(range(len(arc_losses)), arc_losses, label='arc loss')
+        pyplot.plot(range(len(label_losses)), label_losses, label='label loss')
+        pyplot.legend(loc='upper right')
         pyplot.savefig('lang_{}/models/{}_loss.pdf'.format(language, sys.argv[4]))
 
 
