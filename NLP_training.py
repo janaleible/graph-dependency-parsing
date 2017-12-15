@@ -138,11 +138,11 @@ class LSTMParser(nn.Module):
 
         # stuff for labels
         heads = biLSTM_embed
-        dependants = torch.index_select(
+        dependants = Variable(torch.index_select(
             biLSTM_embed.data,
             0,
             torch.from_numpy(np.argmax(gold_tree, 1))
-        )
+        ))
 
         label_matrix = self.labelMLP(torch.cat((heads, dependants), 2).view(-1, 500))
 
@@ -160,17 +160,10 @@ class LSTMParser(nn.Module):
 
     def predict(self, sentence):
 
-        prediction, biLSTM_encoded = self.forward(sentence)
+        arc_matrix, label_matrix = self.forward(sentence)
+        max_tree = self.get_tree(arc_matrix)
 
-        softmax = nn.Softmax()
-        prediction = softmax(prediction)
-
-        prediction = prediction.data.numpy()
-
-        # we represent the final parse as a words*words mtx, where the root is indicated as the diagonal element
-        max_tree = mst(prediction)
-
-        return max_tree, biLSTM_encoded
+        return max_tree, label_matrix
 
 
 # Hyperparameter
@@ -218,15 +211,17 @@ def train_step(model, input_sent, gold_arcs, gold_labels, arc_loss_criterion, la
     loss.backward()
     optimizer.step()
 
-    return loss, arc_matrix, (arc_loss, label_loss)
+    del arc_matrix, label_matrix
+
+    return loss, None, (arc_loss, label_loss)
 
 
-# def visualise_sentence(sentence, matrix, epoch):
-#
-#     pyplot.imshow(matrix)
-#     pyplot.colorbar()
-#     pyplot.title("Weight matrix of random matrix A")
-#     pyplot.show()
+def visualise_sentence(sentence, matrix, epoch):
+
+    pyplot.imshow(matrix)
+    pyplot.colorbar()
+    pyplot.title("Matrix")
+    pyplot.show()
 
 
 # define the training for loop
@@ -254,16 +249,16 @@ def train(filename, model, language, verbose = 1):
             epoch_arc_loss += losses_separate[0]
             epoch_label_loss += losses_separate[1]
 
-            if verbose > 2: print('loss {0:.4f} for "'.format(loss.data.numpy()[0]) + ' '.join(word for word in sentence[:,0]) + '"')
+            # if verbose > 2: print('loss {0:.4f} for "'.format(loss.data.numpy()[0]) + ' '.join(word for word in sentence[:,0]) + '"')
 
-            # if verbose > 1: visualise_sentence(sentence, matrix)
+            # if verbose > 1: visualise_sentence(sentence, matrix, epoch)
 
         torch.save(model.state_dict(), "lang_{}/models/{}.pth".format(language, sys.argv[4]))
         arc_losses.append(epoch_arc_loss.data.numpy()[0] / len(sentences))
         label_losses.append(epoch_label_loss.data.numpy()[0] / len(sentences))
 
 
-        if verbose > 0: print('average loss {} \n*****'.format(arc_losses[-1]))
+        if verbose > 0: print('average loss {} \n*****'.format(arc_losses[-1] + label_losses[-1]))
 
         pyplot.plot(range(len(arc_losses)), arc_losses, label='arc loss')
         pyplot.plot(range(len(label_losses)), label_losses, label='label loss')
@@ -272,4 +267,4 @@ def train(filename, model, language, verbose = 1):
 
 
 if __name__ == "__main__":
-    train(file, model, language)
+    train(file, model, language, verbose=3)
