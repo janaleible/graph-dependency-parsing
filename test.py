@@ -4,13 +4,13 @@ import torch
 from torch.autograd import Variable
 
 language = 'en'
-# filename = 'lang_{}/gold/{}-ud-dev.conllu'.format(language, language)
-filename = 'lang_en/gold/mytest.conllu'
+filename = 'lang_{}/gold/{}-ud-test.conllu'.format(language, language)
+# filename = 'lang_en/gold/mytest.conllu'
 
 sentences = NLP_training.prepare_data(filename, training=False)
 
 model = NLP_training.LSTMParser()
-model.load_state_dict(torch.load("lang_{}/models/model1.pth".format(language)))
+model.load_state_dict(torch.load("lang_{}/models/model11.pth".format(language)))
 
 def UAS_score(model, sentences):
 
@@ -19,6 +19,8 @@ def UAS_score(model, sentences):
     with open('conllu', 'w') as file:
         file.write('')
 
+    precision_sent = 0
+    word_count = 0
     for i in range(len(sentences)):
         print(i)
         sentence = sentences[i]
@@ -27,15 +29,17 @@ def UAS_score(model, sentences):
 
         max_tree, _ = model.predict(sentence_var)
 
-        precision_sent = 0
+        # precision_sent = 0
         for j in range(1, len(sentence)):
             if(max_tree[j, target.view(target.size()[1])[j]] != 0):
                 precision_sent += 1
-            precision_arr[i] = precision_sent/(len(sentence) - 1)
+            word_count += 1
+            # precision_arr[i] = precision_sent/(len(sentence) - 1)
 
         write_to_file('conllu', sentence[1:], max_tree[1:,])
 
-    return np.mean(precision_arr)
+    # return np.mean(precision_arr)
+    return precision_sent / word_count
 
 def write_to_file(filename, sentence, tree):
 
