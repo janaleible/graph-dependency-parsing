@@ -36,7 +36,6 @@ def prepare_data(file, training=True):
     sent_idx = -1
     for i in range(len(properties['words'])):
         if (properties['idx'][i] == 1):
-            # if(properties['idx'][i+1] == 1): continue # skip one word sentences
             sent_idx +=1
             sentences.append(np.array(['<root>', '<root>', 0, 'root']))
             sentences[sent_idx] = np.vstack((sentences[sent_idx], np.array([properties['words'][i], properties['tags'][i], properties['dep_heads'][i], properties['labels'][i]])))
@@ -77,19 +76,11 @@ def calc_gold_arcs(sentence):
     for line in sentence:
         heads.append(int(line[2]))
 
-    # for i in range(len(sentence)):
-    #     # word is root -> mark with arrow to itself
-    #     # if(heads[i] == "0"): heads[i] = i
-    #     # else: heads[i] = int(heads[i])-1
-    #     heads[i] = int(heads[i])
-
 
     target = torch.from_numpy(np.array([heads]))
 
     return target
 
-
-# Defining the LSTMParser class
 
 class LSTMParser(nn.Module):
     """
@@ -98,7 +89,6 @@ class LSTMParser(nn.Module):
 
     def __init__(self):
         super(LSTMParser, self).__init__()
-        # self.weights = Parameter()
 
         self.biLSTM = nn.LSTM(
             input_size=lstm_in_size,
@@ -166,7 +156,7 @@ class LSTMParser(nn.Module):
         return max_tree, label_matrix
 
 
-# Hyperparameter
+# Hyperparameters
 lstm_in_size = 125
 lstm_h_size = 125
 lstm_num_layers = 1
@@ -211,21 +201,20 @@ def train_step(model, input_sent, gold_arcs, gold_labels, arc_loss_criterion, la
     loss.backward()
     optimizer.step()
 
-    del arc_matrix, label_matrix
+    del label_matrix
 
-    return loss, None, (arc_loss, label_loss)
-
-
-def visualise_sentence(sentence, matrix, epoch):
-
-    pyplot.imshow(matrix)
-    pyplot.colorbar()
-    pyplot.title("Matrix")
-    pyplot.show()
+    return loss, arc_matrix, (arc_loss, label_loss)
 
 
-# define the training for loop
-def train(filename, model, language, verbose = 1):
+def visualise_sentence(sentence, matrix, epoch, modelname, language):
+
+    if len(sentence) > 6 and all(sentence[:, 0][1:5] == ['The', 'third', 'was', 'being']):
+
+        with open('lang_{}/models/sample_sentence/model_{}_epoch{}.pickle'.format(language, modelname, epoch), 'wb') as file:
+            pickle.dump(matrix, file)
+
+
+def train(filename, model, language, verbose = 2):
 
     sentences = prepare_data(filename)
 
@@ -245,15 +234,17 @@ def train(filename, model, language, verbose = 1):
 
             gold_arcs = Variable(calc_gold_arcs(sentence))
             gold_labels = Variable(calc_gold_labels(sentence))
-            loss, matrix, losses_separate = train_step(model, sentence_var, gold_arcs, gold_labels, arc_loss_criterion, label_loss_criterion, optimizer)
+            loss, arc_matrix, losses_separate = train_step(model, sentence_var, gold_arcs, gold_labels, arc_loss_criterion, label_loss_criterion, optimizer)
             epoch_arc_loss += losses_separate[0]
             epoch_label_loss += losses_separate[1]
 
-            # if verbose > 2: print('loss {0:.4f} for "'.format(loss.data.numpy()[0]) + ' '.join(word for word in sentence[:,0]) + '"')
+            if verbose > 2: print('loss {0:.4f} for "'.format(loss.data.numpy()[0]) + ' '.join(word for word in sentence[:,0]) + '"')
 
-            # if verbose > 1: visualise_sentence(sentence, matrix, epoch)
+            if verbose > 1: visualise_sentence(sentence, arc_matrix, epoch, modelname, language)
 
-        torch.save(model.state_dict(), "lang_{}/models/{}.pth".format(language, sys.argv[4]))
+            del arc_matrix
+
+        torch.save(model.state_dict(), "lang_{}/models/{}.pth".format(language, modelname))
         arc_losses.append(epoch_arc_loss.data.numpy()[0] / len(sentences))
         label_losses.append(epoch_label_loss.data.numpy()[0] / len(sentences))
 
@@ -263,8 +254,13 @@ def train(filename, model, language, verbose = 1):
         pyplot.plot(range(len(arc_losses)), arc_losses, label='arc loss')
         pyplot.plot(range(len(label_losses)), label_losses, label='label loss')
         pyplot.legend(loc='upper right')
-        pyplot.savefig('lang_{}/models/{}_loss.pdf'.format(language, sys.argv[4]))
+        pyplot.savefig('lang_{}/models/{}_loss.pdf'.format(language, modelname))
+        print('arc loss: ', arc_losses[-1])
+        print('label loss: ', label_losses[-1])
 
 
 if __name__ == "__main__":
-    train(file, model, language, verbose=3)
+
+    modelname = sys.argv[4]
+
+    train(file, model, language)
