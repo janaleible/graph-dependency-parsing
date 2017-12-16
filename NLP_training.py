@@ -157,11 +157,13 @@ def calc_gold_labels(sentence):
 
     labels = []
 
-    with open('lang_en/embeddings/label2i.pickle', 'rb') as file:
+    with open('lang_{}/embeddings/label2i.pickle'.format(language), 'rb') as file:
         label2i = pickle.load(file)
 
     for line in sentence:
-        labels.append(label2i[line[3]])
+        label = line[3]
+        if ':' in label: label = label.split(':')[0]
+        labels.append(label2i[label])
 
     target = torch.from_numpy(np.array([labels]))
 
@@ -223,7 +225,7 @@ def train(filename, model, language, epochs, verbose = 2):
 
             del arc_matrix
 
-        torch.save(model.state_dict(), "lang_{}/models/{}.pth".format(language, modelname))
+        torch.save(model.state_dict(), "lang_{}/models/{}_e{}.pth".format(language, modelname, epoch))
         arc_losses.append(epoch_arc_loss.data.numpy()[0] / len(sentences))
         label_losses.append(epoch_label_loss.data.numpy()[0] / len(sentences))
 

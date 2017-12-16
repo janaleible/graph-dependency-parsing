@@ -19,7 +19,7 @@ def get_word_embeddings(language) -> {}:
     if word_embeddings[language] is not None: return word_embeddings[language]
 
     embed_word = {}
-    filename = 'lang_{}/embeddings/vectors-unk.txt'.format(language)
+    filename = 'lang_{}/embeddings/vectors-words.txt'.format(language)
     with open(filename, "r") as f:
         for line in f:
             tokens = line.lower().strip().split(" ")

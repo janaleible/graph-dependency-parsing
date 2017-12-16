@@ -44,13 +44,12 @@ def UAS_and_LAS(model, sentences, language):
 
             word_count += 1
 
+            predicted_labels = np.argmax(label_prediction.data.numpy(), 1)
             if arc_prediction[j, target_arcs.view(-1)[j]] != 0 :
                 correct_arcs += 1
 
-            predicted_labels = np.argmax(label_prediction.data.numpy(), 1)
-
-            if predicted_labels[j] == target_labels.view(-1)[j]:
-                correct_labels += 1
+                if predicted_labels[j] == target_labels.view(-1)[j]:
+                    correct_labels += 1
 
         write_to_file('conllu', sentence[1:], arc_prediction[1:,], [i2label[l] for l in predicted_labels[1:]])
 
