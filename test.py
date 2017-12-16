@@ -1,17 +1,19 @@
 import numpy as np
+import sys
 import NLP_training
 import torch
 import pickle
 from torch.autograd import Variable
 
-language = 'en'
-filename = 'lang_{}/gold/{}-ud-test.conllu'.format(language, language)
-# filename = 'lang_en/gold/mytest.conllu'
+language = sys.argv[4]
+filename = 'lang_{}/gold/{}-ud-{}.conllu'.format(language, language, sys.argv[5])
+
+modelname = sys.argv[6]
 
 sentences = NLP_training.prepare_data(filename, training=False)
 
 model = NLP_training.LSTMParser()
-model.load_state_dict(torch.load("lang_{}/models/model_att1.pth".format(language)))
+model.load_state_dict(torch.load("lang_{}/models/{}.pth".format(language, modelname)))
 
 def UAS_and_LAS(model, sentences, language):
 
@@ -31,7 +33,6 @@ def UAS_and_LAS(model, sentences, language):
 
         target_arcs = NLP_training.calc_gold_arcs(sentence)
         target_labels = NLP_training.calc_gold_labels(sentence)
-        target_labels_readable = [i2label[l] for l in list(target_labels.view(-1))]
 
         sentence_var = Variable(NLP_training.embed_sentence(sentence, language), requires_grad=False)
 

@@ -12,8 +12,6 @@ from conll_df import conll_df
 
 from mst import mst
 
-language = 'en'
-file = 'lang_{}/gold/{}-ud-train.conllu'.format(language, language)
 
 def prepare_data(file, training=True):
 
@@ -75,7 +73,6 @@ def calc_gold_arcs(sentence):
 
     for line in sentence:
         heads.append(int(line[2]))
-
 
     target = torch.from_numpy(np.array([heads]))
 
@@ -156,25 +153,6 @@ class LSTMParser(nn.Module):
         return max_tree, label_matrix
 
 
-# Hyperparameters
-lstm_in_size = 125
-lstm_h_size = 125
-lstm_num_layers = 1
-
-MLP_in = 500
-
-MLP_score_hidden = int(sys.argv[1])
-MLP_score_out = 1
-
-MLP_label_hidden = int(sys.argv[5])
-MLP_label_out = 50
-
-learning_rate = float(sys.argv[2])
-arc_loss_criterion = nn.CrossEntropyLoss()
-label_loss_criterion = nn.CrossEntropyLoss()
-model = LSTMParser()
-optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
-
 def calc_gold_labels(sentence):
 
     labels = []
@@ -189,8 +167,6 @@ def calc_gold_labels(sentence):
 
     return target
 
-
-# TRAINING
 def train_step(model, input_sent, gold_arcs, gold_labels, arc_loss_criterion, label_loss_criterion, optimizer):
 
     model.zero_grad()
@@ -208,20 +184,23 @@ def train_step(model, input_sent, gold_arcs, gold_labels, arc_loss_criterion, la
 
 def visualise_sentence(sentence, matrix, epoch, modelname, language):
 
-    if len(sentence) > 6 and all(sentence[:, 0][1:5] == ['The', 'third', 'was', 'being']):
+    if len(sentence) > 6 and (
+        all(sentence[:, 0][1:5] == ['The', 'third', 'was', 'being'])
+        or all(sentence[:, 0][1:5] == ['Die', 'Soldaten', 'hätten', 'sowieso'])
+    ):
 
         with open('lang_{}/models/sample_sentence/model_{}_epoch{}.pickle'.format(language, modelname, epoch), 'wb') as file:
             pickle.dump(matrix, file)
 
 
-def train(filename, model, language, verbose = 2):
+def train(filename, model, language, epochs, verbose = 2):
 
     sentences = prepare_data(filename)
 
     arc_losses = []
     label_losses = []
 
-    for epoch in range(int(sys.argv[3])):
+    for epoch in range(epochs):
 
         epoch_arc_loss = 0
         epoch_label_loss = 0
@@ -249,7 +228,7 @@ def train(filename, model, language, verbose = 2):
         label_losses.append(epoch_label_loss.data.numpy()[0] / len(sentences))
 
 
-        if verbose > 0: print('average loss {} \n*****'.format(arc_losses[-1] + label_losses[-1]))
+        if verbose > 0: print('combined loss {} \n*****'.format(arc_losses[-1] + label_losses[-1]))
 
         pyplot.plot(range(len(arc_losses)), arc_losses, label='arc loss')
         pyplot.plot(range(len(label_losses)), label_losses, label='label loss')
@@ -259,8 +238,32 @@ def train(filename, model, language, verbose = 2):
         print('label loss: ', label_losses[-1])
 
 
+# Hyperparameters
+lstm_in_size = 125
+lstm_h_size = 125
+lstm_num_layers = 1
+
+MLP_in = 500
+
+MLP_score_hidden = int(sys.argv[1])
+MLP_score_out = 1
+
+MLP_label_hidden = int(sys.argv[3])
+MLP_label_out = 50
+
+learning_rate = float(sys.argv[2])
+arc_loss_criterion = nn.CrossEntropyLoss()
+label_loss_criterion = nn.CrossEntropyLoss()
+model = LSTMParser()
+optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
+
+
+language = sys.argv[4]
+file = 'lang_{}/gold/{}-ud-train.conllu'.format(language, language)
+
 if __name__ == "__main__":
 
-    modelname = sys.argv[4]
+    epochs = int(sys.argv[5])
+    modelname = sys.argv[6]
 
-    train(file, model, language)
+    train(file, model, language, epochs)
