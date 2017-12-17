@@ -1,0 +1,119 @@
+***** Epoch 0:
+average loss 2.7398615935952724 
+*****
+arc loss:  1.2471122699
+label loss:  1.49274932369
+
+***** Epoch 1:
+average loss 1.6717091200736705 
+*****
+arc loss:  0.821006512912
+label loss:  0.850702607161
+
+***** Epoch 2:
+average loss 1.3450478719952883 
+*****
+arc loss:  0.685051106927
+label loss:  0.659996765068
+
+***** Epoch 3:
+average loss 1.1628163728712466 
+*****
+arc loss:  0.607095535295
+label loss:  0.555720837576
+
+***** Epoch 4:
+average loss 1.0425613030441423 
+*****
+arc loss:  0.552008816046
+label loss:  0.490552486998
+
+***** Epoch 5:
+average loss 0.9535101424617674 
+*****
+arc loss:  0.509205127101
+label loss:  0.44430501536
+
+***** Epoch 6:
+average loss 0.8827682419566563 
+*****
+arc loss:  0.473820567988
+label loss:  0.408947673969
+
+***** Epoch 7:
+average loss 0.8239479765612522 
+*****
+arc loss:  0.443306616293
+label loss:  0.380641360268
+
+***** Epoch 8:
+average loss 0.7732138701510343 
+*****
+arc loss:  0.41642361787
+label loss:  0.356790252281
+
+***** Epoch 9:
+average loss 0.7283957188473287 
+*****
+arc loss:  0.392458374823
+label loss:  0.335937344025
+
+***** Epoch 10:
+average loss 0.689284262042555 
+*****
+arc loss:  0.370765265632
+label loss:  0.31851899641
+
+***** Epoch 11:
+average loss 0.6534215210916288 
+*****
+arc loss:  0.351015766938
+label loss:  0.302405754154
+
+***** Epoch 12:
+average loss 0.6209558871698311 
+*****
+arc loss:  0.332929161863
+label loss:  0.288026725307
+
+***** Epoch 13:
+average loss 0.5911471981188109 
+*****
+arc loss:  0.316303676623
+label loss:  0.274843521496
+
+***** Epoch 14:
+average loss 0.5635342734287654 
+*****
+arc loss:  0.300805328715
+label loss:  0.262728944714
+
+***** Epoch 15:
+average loss 0.5377252246982811 
+*****
+arc loss:  0.286248936247
+label loss:  0.251476288451
+
+***** Epoch 16:
+average loss 0.5131414998664849 
+*****
+arc loss:  0.272497026327
+label loss:  0.240644473539
+
+***** Epoch 17:
+average loss 0.4902812846265573 
+*****
+arc loss:  0.259564241154
+label loss:  0.230717043472
+
+***** Epoch 18:
+average loss 0.46829266038646983 
+*****
+arc loss:  0.247304665663
+label loss:  0.220987994723
+
+***** Epoch 19:
+average loss 0.44865538605179883 
+*****
+arc loss:  0.235767588107
+label loss:  0.212887797944

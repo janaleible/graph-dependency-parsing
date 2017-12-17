@@ -1,52 +1,67 @@
 import numpy as np
+import sys
 import NLP_training
 import torch
+import pickle
 from torch.autograd import Variable
 
-language = 'en'
-filename = 'lang_{}/gold/{}-ud-test.conllu'.format(language, language)
-# filename = 'lang_en/gold/mytest.conllu'
+language = sys.argv[4]
+filename = 'lang_{}/gold/{}-ud-{}.conllu'.format(language, language, sys.argv[5])
+
+modelname = sys.argv[6]
 
 sentences = NLP_training.prepare_data(filename, training=False)
 
 model = NLP_training.LSTMParser()
-model.load_state_dict(torch.load("lang_{}/models/model11.pth".format(language)))
+model.load_state_dict(torch.load("lang_{}/models/{}.pth".format(language, modelname)))
 
-def UAS_score(model, sentences):
-
-    precision_arr = np.zeros(len(sentences))
+def UAS_and_LAS(model, sentences, language):
 
     with open('conllu', 'w') as file:
         file.write('')
 
-    precision_sent = 0
+    with open('lang_{}/embeddings/i2label.pickle'.format(language), 'rb') as file:
+        i2label = pickle.load(file)
+
+    correct_arcs = 0
+    correct_labels = 0
     word_count = 0
+
     for i in range(len(sentences)):
-        print(i)
+
         sentence = sentences[i]
-        target = NLP_training.calc_gold_arcs(sentence)
+
+        target_arcs = NLP_training.calc_gold_arcs(sentence)
+        target_labels = NLP_training.calc_gold_labels(sentence)
+
         sentence_var = Variable(NLP_training.embed_sentence(sentence, language), requires_grad=False)
 
-        max_tree, _ = model.predict(sentence_var)
+        arc_prediction, label_prediction = model.predict(sentence_var)
 
-        # precision_sent = 0
-        for j in range(1, len(sentence)):
-            if(max_tree[j, target.view(target.size()[1])[j]] != 0):
-                precision_sent += 1
+        for j, word in enumerate(sentence):
+
+            if j == 0: continue # skip root
+
             word_count += 1
-            # precision_arr[i] = precision_sent/(len(sentence) - 1)
 
-        write_to_file('conllu', sentence[1:], max_tree[1:,])
+            predicted_labels = np.argmax(label_prediction.data.numpy(), 1)
+            if arc_prediction[j, target_arcs.view(-1)[j]] != 0 :
+                correct_arcs += 1
 
-    # return np.mean(precision_arr)
-    return precision_sent / word_count
+                if predicted_labels[j] == target_labels.view(-1)[j]:
+                    correct_labels += 1
 
-def write_to_file(filename, sentence, tree):
+        write_to_file('conllu', sentence[1:], arc_prediction[1:,], [i2label[l] for l in predicted_labels[1:]])
+
+    return correct_arcs / word_count, correct_labels / word_count
+
+def write_to_file(filename, sentence, tree, labels):
 
     conllu = '# ' + ' '.join(sentence[:, 0]) + '\n'
+
     for index, line in enumerate(sentence):
-        conllu += '{}\t{}\t_\t_\t_\t_\t{}\t_\t_\t_'.format(index + 1, line[0], np.argmax(tree[index, :]), )
-        conllu += '\n'
+        conllu += '{}\t{}\t_\t_\t_\t_\t{}\t{}\t_\t_\n'.format(index + 1, line[0], np.argmax(tree[index, :]), labels[index])
+
     conllu += '\n'
 
     with open(filename, 'a') as file:
@@ -55,5 +70,5 @@ def write_to_file(filename, sentence, tree):
 
 
 
-UAS = UAS_score(model, sentences)
+UAS = UAS_and_LAS(model, sentences,language)
 print(UAS)
