@@ -1,4 +1,7 @@
-lang_en/models/sample_sentence
+lang_en/models/sample_sentence/*
+lang_de/models/sample_sentence/*
+!lang_en/models/sample_sentence/.gitkeep
+!lang_de/models/sample_sentence/.gitkeep
 visualisation/
 
 # Byte-compiled / optimized / DLL files
